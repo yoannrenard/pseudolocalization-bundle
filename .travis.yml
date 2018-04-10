@@ -1,0 +1,75 @@
+language: php
+
+dist: trusty
+sudo: false
+
+git:
+  depth: 1
+
+addons:
+  apt:
+    packages:
+      - parallel
+
+matrix:
+  include:
+    - php: 5.6
+      env:
+        - DEPS=lowest
+    - php: 5.6
+      env:
+        - DEPS=locked
+    - php: 5.6
+      env:
+        - DEPS=latest
+
+    - php: 7.0
+      env:
+        - DEPS=lowest
+    - php: 7.0
+      env:
+        - DEPS=locked
+    - php: 7.0
+      env:
+        - DEPS=latest
+
+    - php: 7.1
+      env:
+        - DEPS=lowest
+    - php: 7.1
+      env:
+        - DEPS=locked
+    - php: 7.1
+      env:
+        - DEPS=latest
+
+    - php: 7.2
+      env:
+        - DEPS=lowest
+    - php: 7.2
+      env:
+        - DEPS=locked
+    - php: 7.2
+      env:
+        - DEPS=latest
+
+cache:
+  directories:
+    - $HOME/.composer/cache/
+
+install:
+  - travis_retry composer self-update
+
+before_script:
+  # Remove xdebug
+  - phpenv config-rm xdebug.ini || echo "xdebug not available"
+  - travis_retry composer install --no-interaction --prefer-dist
+  - composer show
+
+script:
+  # Run tests
+  - ./vendor/bin/simple-phpunit
+
+after_failure:
+  # Display error logs
+  - cat /var/log/php_errors.log

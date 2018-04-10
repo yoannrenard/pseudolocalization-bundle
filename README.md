@@ -1,0 +1,3 @@
+# Pseudolocalization
+
+Pseudo language generator
