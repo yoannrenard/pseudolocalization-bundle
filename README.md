@@ -24,7 +24,7 @@ Since this bundle is still under development and not released in Packagist yet, 
         "type": "vcs",
         "url": "https://github.com/yoannrenard/pseudolocalization-bundle.git"
     }
-],
+]
 ```
 
 And then run :
