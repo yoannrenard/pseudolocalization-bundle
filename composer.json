@@ -22,7 +22,6 @@
         "yoannrenard/pseudolocalization": "^1.0"
     },
     "require-dev": {
-        "phpunit/phpunit": "^7.1",
         "symfony/phpunit-bridge": "^3.4 || ^4.0",
         "phpspec/prophecy": "^1.7",
         "symfony/dependency-injection": "^3.4 || ^4.0",
