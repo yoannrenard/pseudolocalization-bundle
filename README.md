@@ -6,7 +6,7 @@ into Symfony so that you can generate pseudolocalized translations into your pro
 ## Requirements
 
 * PHP 5.6 or higher;
-* Symfony 2.8 or higher;
+* Symfony 3.4 or higher;
 
 ## Setup
 
@@ -24,23 +24,23 @@ Since this bundle is still under development and not released in Packagist yet, 
         "type": "vcs",
         "url": "https://github.com/yoannrenard/pseudolocalization-bundle.git"
     }
-],
+]
 ```
 
 And then run :
 
 ```bash
-$ composer require yoannrenard/pimp-my-query-bundle:dev-master
+$ composer require --dev yoannrenard/pseudolocalization-bundle:dev-master
 ```
 
-2. Enable the Bundle (Already done using Symfony Flex)
+2. Enable the Bundle (Already done when using Symfony Flex)
 
 ```php
 <?php
 
-return [
-    // ...
-    YoannRenard\PseudolocalizationBundle\PseudolocalizationBundle::class => ['all' => true],
-    // ...
-];
+//...
+if (in_array($this->getEnvironment(), array('dev', 'test'), true)) {
+    $bundles[] = new YoannRenard\PseudolocalizationBundle\PseudolocalizationBundle();
+}
+//...
 ```
