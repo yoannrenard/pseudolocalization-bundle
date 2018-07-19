@@ -8,24 +8,27 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
+use Symfony\Component\Translation\Writer\TranslationWriterInterface;
 
 final class GenerateCommand extends Command
 {
+    /** @var TranslationWriterInterface */
+    private $writer;
+
     /** @var string */
     private $defaultTransPath;
 
     /** @var array */
     private $defaultLocale;
 
-    /**
-     * @param string                     $defaultLocale
-     * @param string                     $defaultTransPath
-     */
     public function __construct(
+        TranslationWriterInterface $writer,
         $defaultLocale,
         $defaultTransPath = null
     ) {
         parent::__construct();
+
+        $this->writer           = $writer;
         $this->defaultLocale    = $defaultLocale;
         $this->defaultTransPath = $defaultTransPath;
     }
@@ -60,6 +63,14 @@ EOF
     protected function execute(InputInterface $input, OutputInterface $output)
     {
         $io = new SymfonyStyle($input, $output);
+        $errorIo = $io->getErrorStyle();
+
+        // check format
+        $supportedFormats = $this->writer->getFormats();
+        if (!in_array($input->getOption('output-format'), $supportedFormats)) {
+            $errorIo->error(array('Wrong output format', 'Supported formats are: '.implode(', ', $supportedFormats).'.'));
+            return 1;
+        }
 
         $io->success('Your translation files were successfully updated.');
 
