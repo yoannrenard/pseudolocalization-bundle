@@ -1,0 +1,19 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+        public: false
+
+    YoannRenard\PseudolocalizationBundle\Command\GenerateCommand:
+        arguments:
+            - '@translation.writer'
+            - '@YoannRenard\PseudolocalizationBundle\Reader\MultipleTranslationReader'
+            - '@translation.extractor'
+        bind:
+            $defaultLocale: '%kernel.default_locale%'
+            $defaultTransPath: '%translator.default_path%'
+        tags:
+            - { name: 'console.command', command: 'translation:pseudolocalization:generate' }
+
+    YoannRenard\PseudolocalizationBundle\Reader\MultipleTranslationReader:
+        arguments: ['@translation.reader']
