@@ -8,29 +8,66 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
-use Symfony\Component\Translation\Writer\TranslationWriterInterface;
+use Symfony\Component\HttpKernel\Kernel;
+use Symfony\Component\HttpKernel\KernelInterface;
+use Symfony\Component\Translation\Extractor\ExtractorInterface;
+use Symfony\Component\Translation\MessageCatalogue;
+use Symfony\Component\Translation\Reader\TranslationReaderInterface;
+use Symfony\Component\Translation\Writer\TranslationWriter;
+use YoannRenard\Pseudolocalization\TranslatorFactory;
+use YoannRenard\PseudolocalizationBundle\Translation\Catalogue\MergeOperationAdapter;
 
 final class GenerateCommand extends Command
 {
-    /** @var TranslationWriterInterface */
+    /** @var TranslationWriter */
     private $writer;
+
+    /** @var TranslationReaderInterface */
+    private $reader;
+
+    /** @var ExtractorInterface */
+    private $extractor;
+
+    /** @var string */
+    private $defaultLocale;
 
     /** @var string */
     private $defaultTransPath;
 
+    /** @var KernelInterface */
+    private $kernel;
+
     /** @var array */
-    private $defaultLocale;
+    private $transPaths;
 
     public function __construct(
-        TranslationWriterInterface $writer,
+        TranslationWriter $writer,
+        TranslationReaderInterface $reader,
+        ExtractorInterface $extractor,
         $defaultLocale,
         $defaultTransPath = null
     ) {
         parent::__construct();
 
         $this->writer           = $writer;
+        $this->reader           = $reader;
+        $this->extractor        = $extractor;
         $this->defaultLocale    = $defaultLocale;
         $this->defaultTransPath = $defaultTransPath;
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    protected function initialize(InputInterface $input, OutputInterface $output)
+    {
+        parent::initialize($input, $output);
+        $this->kernel = $this->getApplication()->getKernel();
+        // Define Root Paths
+        $this->transPaths = [
+            $this->kernel->getRootDir().'/Resources/translations',
+            $this->defaultTransPath,
+        ];
     }
 
     /**
@@ -42,8 +79,7 @@ final class GenerateCommand extends Command
             ->setName('translation:pseudolocalization:generate')
             ->setDefinition(array(
                 new InputArgument('locale', InputArgument::OPTIONAL, 'The locale', $this->defaultLocale),
-                new InputArgument('bundle', InputArgument::OPTIONAL, 'The bundle name or directory where to load the messages, defaults to app/Resources folder'),
-                new InputOption('output-format', null, InputOption::VALUE_OPTIONAL, 'Override the default output format', 'yml'),
+                new InputOption('output-format', null, InputOption::VALUE_OPTIONAL, 'Override the default output format', 'php'),
             ))
             ->setDescription('Generate pseudolocalized translations')
             ->setHelp(<<<'EOF'
@@ -69,11 +105,84 @@ EOF
         $supportedFormats = $this->writer->getFormats();
         if (!in_array($input->getOption('output-format'), $supportedFormats)) {
             $errorIo->error(array('Wrong output format', 'Supported formats are: '.implode(', ', $supportedFormats).'.'));
+
             return 1;
         }
+
+        $errorIo->title('Translation Messages Extractor and Dumper');
+
+        // Filter $this->transPaths : only keep dir path
+        $this->transPaths = array_filter($this->transPaths, function ($path) {
+            return is_dir($path);
+        });
+
+        // load any existing messages from the translation files
+        $pseudolocaziedCatalogue = $this->readMultiple($this->transPaths, new MessageCatalogue('__'));
+        $defaultCatalogue        = $this->readMultiple($this->transPaths, new MessageCatalogue($input->getArgument('locale')));
+
+
+        // Translate into pseudo language
+        $translator = TranslatorFactory::create();
+        $newPseudolocaziedCatalogue = new MessageCatalogue($input->getArgument('locale'));
+        foreach ($defaultCatalogue->getDomains() as $domain) {
+            $messages = array_map(
+                function ($translation) use ($translator) {
+                    return $translator->trans($translation);
+                },
+                $defaultCatalogue->all($domain)
+            );
+
+            $newPseudolocaziedCatalogue->add($messages, $domain = 'messages');
+        }
+
+        $operation = new MergeOperationAdapter($pseudolocaziedCatalogue, $newPseudolocaziedCatalogue);
+
+        // Exit if no messages found.
+        if (!count($operation->getDomains())) {
+            $errorIo->warning('No translation messages were found.');
+
+            return 1;
+        }
+
+
+        // save the files
+        $errorIo->comment('Writing files...');
+
+        $bundleTransPath = false;
+        foreach ($this->transPaths as $path) {
+            $bundleTransPath = $path;
+        }
+
+        if (!$bundleTransPath) {
+            $bundleTransPath = end($this->transPaths);
+        }
+
+
+
+        if (!version_compare(Kernel::VERSION, '4.1.0', '>=')) {
+            $this->writer->disableBackup();
+        }
+
+        $this->writer->write(
+            $operation->getResult(),
+            $input->getOption('output-format'),
+            [
+                'path' => $bundleTransPath,
+                'default_locale' => $this->defaultLocale
+            ]
+        );
 
         $io->success('Your translation files were successfully updated.');
 
         return 0;
+    }
+
+    private function readMultiple(array $directory, MessageCatalogue $catalogue)
+    {
+        array_map(function ($path) use ($catalogue) {
+            $this->reader->read($path, $catalogue);
+        }, $directory);
+
+        return $catalogue;
     }
 }
